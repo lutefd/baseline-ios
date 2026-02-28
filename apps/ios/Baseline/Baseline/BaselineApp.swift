@@ -9,6 +9,7 @@ struct BaselineApp: App {
             Opponent.self,
             MatchSetScore.self,
             SyncOutboxItem.self,
+            SyncCursor.self,
         ])
 
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
