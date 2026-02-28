@@ -19,6 +19,7 @@ struct SessionDetailView: View {
                 row("Type", session.sessionType.rawValue.capitalized)
                 row("Opponent", session.opponent?.name ?? "-")
                 row("Match score", matchScoreSummary)
+                row("Match result", matchResultSummary)
                 row("Duration", "\(session.durationMinutes) min")
                 row("Rushed shots", "\(session.rushedShots)")
                 row("Composure", "\(session.composure)")
@@ -60,13 +61,26 @@ struct SessionDetailView: View {
         .alert("Delete this session?", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
-                modelContext.delete(session)
+                session.deletedAt = Date()
+                session.updatedAt = Date()
+                session.syncState = session.remoteID == nil ? .localOnly : .pendingUpdate
+                if session.remoteID != nil {
+                    OutboxQueue.enqueueUpdate(for: session, context: modelContext)
+                }
                 try? modelContext.save()
+                Task { @MainActor in
+                    await SyncEngine.shared.syncNow(reason: .postMutation, context: modelContext)
+                }
                 dismiss()
             }
         } message: {
             Text("This action cannot be undone.")
         }
+    }
+
+    private var matchResultSummary: String {
+        guard let isMatchWin = session.isMatchWin else { return "-" }
+        return isMatchWin ? "Win" : "Loss"
     }
 
     private var matchScoreSummary: String {

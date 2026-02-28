@@ -207,6 +207,9 @@ struct SessionEditorView: View {
             draft.apply(to: session, in: modelContext)
             OutboxQueue.enqueueUpdate(for: session, context: modelContext)
             try modelContext.save()
+            Task { @MainActor in
+                await SyncEngine.shared.syncNow(reason: .postMutation, context: modelContext)
+            }
             dismiss()
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription

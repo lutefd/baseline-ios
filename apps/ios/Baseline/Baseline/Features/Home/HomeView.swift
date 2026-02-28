@@ -2,7 +2,13 @@ import SwiftUI
 import SwiftData
 
 struct HomeView: View {
-    @Query(sort: \Session.date, order: .reverse) private var sessions: [Session]
+    @Query(
+        filter: #Predicate<Session> { session in
+            session.deletedAt == nil
+        },
+        sort: \Session.date,
+        order: .reverse
+    ) private var sessions: [Session]
     private let tennisGreen = Color(red: 0.45, green: 0.73, blue: 0.29)
     @State private var selectedSessionID: UUID?
     @State private var activeChartID: String?

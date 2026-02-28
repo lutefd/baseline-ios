@@ -224,6 +224,9 @@ struct NewSessionView: View {
             durationMinutesText = String(draft.durationMinutes)
             lastDurationMinutesValue = draft.durationMinutes
             errorMessage = nil
+            Task { @MainActor in
+                await SyncEngine.shared.syncNow(reason: .postMutation, context: modelContext)
+            }
             onSessionSaved()
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription

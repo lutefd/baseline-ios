@@ -3,7 +3,13 @@ import SwiftData
 
 struct HistoryView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Session.date, order: .reverse) private var sessions: [Session]
+    @Query(
+        filter: #Predicate<Session> { session in
+            session.deletedAt == nil
+        },
+        sort: \Session.date,
+        order: .reverse
+    ) private var sessions: [Session]
     @State private var sessionToEdit: Session?
     @State private var sessionToDelete: Session?
     @State private var hiddenSessionIDs = Set<UUID>()
@@ -86,9 +92,17 @@ struct HistoryView: View {
                 guard let session = sessionToDelete else { return }
                 hiddenSessionIDs.insert(session.id)
                 sessionToDelete = nil
-                modelContext.delete(session)
+                session.deletedAt = Date()
+                session.updatedAt = Date()
+                session.syncState = session.remoteID == nil ? .localOnly : .pendingUpdate
+                if session.remoteID != nil {
+                    OutboxQueue.enqueueUpdate(for: session, context: modelContext)
+                }
                 do {
                     try modelContext.save()
+                    Task { @MainActor in
+                        await SyncEngine.shared.syncNow(reason: .postMutation, context: modelContext)
+                    }
                 } catch {
                     hiddenSessionIDs.remove(session.id)
                 }
