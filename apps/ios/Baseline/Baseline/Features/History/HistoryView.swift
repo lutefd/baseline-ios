@@ -6,13 +6,18 @@ struct HistoryView: View {
     @Query(sort: \Session.date, order: .reverse) private var sessions: [Session]
     @State private var sessionToEdit: Session?
     @State private var sessionToDelete: Session?
+    @State private var hiddenSessionIDs = Set<UUID>()
+
+    private var visibleSessions: [Session] {
+        sessions.filter { !hiddenSessionIDs.contains($0.id) }
+    }
 
     var body: some View {
         ZStack {
             BaselineScreenBackground()
 
             List {
-                ForEach(sessions) { session in
+                ForEach(visibleSessions) { session in
                     NavigationLink {
                         SessionDetailView(session: session)
                     } label: {
@@ -32,10 +37,6 @@ struct HistoryView: View {
                                     metricPill("C \(session.composure)")
                                     metricPill("R \(session.rushedShots)")
                                 }
-                                Image(systemName: "chevron.right")
-                                    .font(.footnote.weight(.semibold))
-                                    .foregroundStyle(BaselineTheme.secondaryText.opacity(0.8))
-                                    .padding(.leading, 4)
                             }
                             .padding(.vertical, 2)
                         }
@@ -72,9 +73,14 @@ struct HistoryView: View {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
                 guard let session = sessionToDelete else { return }
-                modelContext.delete(session)
-                try? modelContext.save()
+                hiddenSessionIDs.insert(session.id)
                 sessionToDelete = nil
+                modelContext.delete(session)
+                do {
+                    try modelContext.save()
+                } catch {
+                    hiddenSessionIDs.remove(session.id)
+                }
             }
         } message: {
             Text("This action cannot be undone.")
