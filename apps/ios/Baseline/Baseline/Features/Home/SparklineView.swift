@@ -6,6 +6,7 @@ struct SparklineView: View {
     let points: [SessionTrendPoint]
     let lineColor: Color
     let fillColor: Color
+    let pointColor: Color
     
     private var yDomain: ClosedRange<Double> {
         let values = points.map(\.value)
@@ -46,7 +47,7 @@ struct SparklineView: View {
                         x: .value("Date", point.date),
                         y: .value("Value", point.value)
                     )
-                    .foregroundStyle(lineColor)
+                    .foregroundStyle(pointColor)
                     .symbolSize(28)
                 }
                 .chartYScale(domain: yDomain)

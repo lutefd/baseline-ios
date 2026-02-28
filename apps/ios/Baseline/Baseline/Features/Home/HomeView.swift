@@ -3,6 +3,7 @@ import SwiftData
 
 struct HomeView: View {
     @Query(sort: \Session.date, order: .reverse) private var sessions: [Session]
+    private let tennisGreen = Color(red: 0.45, green: 0.73, blue: 0.29)
 
     private var lastSessionDate: String {
         guard let date = sessions.first?.date else { return "No sessions yet" }
@@ -41,14 +42,16 @@ struct HomeView: View {
                     title: "Rushed Shots",
                     points: SessionMetrics.rushedTrendPoints(from: sessions),
                     lineColor: BaselineTheme.accent,
-                    fillColor: BaselineTheme.accentSoft.opacity(0.3)
+                    fillColor: BaselineTheme.accentSoft.opacity(0.3),
+                    pointColor: tennisGreen
                 )
 
                 SparklineView(
                     title: "Composure",
                     points: SessionMetrics.composureTrendPoints(from: sessions),
                     lineColor: Color(red: 0.34, green: 0.36, blue: 0.39),
-                    fillColor: Color(red: 0.95, green: 0.94, blue: 0.92).opacity(0.42)
+                    fillColor: Color(red: 0.95, green: 0.94, blue: 0.92).opacity(0.42),
+                    pointColor: tennisGreen
                 )
             }
             .padding(16)
