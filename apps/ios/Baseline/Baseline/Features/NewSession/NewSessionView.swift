@@ -2,15 +2,21 @@ import SwiftUI
 import SwiftData
 
 struct NewSessionView: View {
+    private enum Field: Hashable {
+        case sessionName
+        case duration
+        case focus
+        case notes
+        case opponentName
+    }
+
     @Environment(\.modelContext) private var modelContext
     @State private var draft = SessionDraft()
     @State private var errorMessage: String?
     @State private var startedAt = Date()
     @State private var durationMinutesText = "60"
     @State private var lastDurationMinutesValue = 60
-    @FocusState private var isDurationFieldFocused: Bool
-    @FocusState private var isFocusFieldFocused: Bool
-    @FocusState private var isNotesFieldFocused: Bool
+    @FocusState private var focusedField: Field?
     var onSessionSaved: () -> Void = {}
 
     private let telemetry = TelemetryStore()
@@ -29,12 +35,26 @@ struct NewSessionView: View {
 
                 Form {
                     Section("Core") {
-                        DatePicker("Date & Time", selection: $draft.date, displayedComponents: [.date, .hourAndMinute])
+                        TextField("Session name", text: $draft.sessionName)
+                            .focused($focusedField, equals: .sessionName)
+                        DatePicker(
+                            "Date & Time",
+                            selection: Binding(
+                                get: { draft.date },
+                                set: { draft.updateDate($0) }
+                            ),
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
                         Picker("Type", selection: $draft.sessionType) {
                             ForEach(SessionType.allCases) { type in
                                 Text(type.rawValue.capitalized).tag(type)
                             }
                         }
+                        .simultaneousGesture(
+                            TapGesture().onEnded {
+                                focusedField = nil
+                            }
+                        )
                         HStack {
                             Text("Duration (min)")
                             Spacer()
@@ -42,7 +62,7 @@ struct NewSessionView: View {
                                 .keyboardType(.numberPad)
                                 .multilineTextAlignment(.trailing)
                                 .frame(width: 84)
-                                .focused($isDurationFieldFocused)
+                                .focused($focusedField, equals: .duration)
                         }
                         Stepper("Rushed shots: \(draft.rushedShots)", value: $draft.rushedShots, in: 0...500)
                         VStack(alignment: .leading) {
@@ -61,17 +81,56 @@ struct NewSessionView: View {
 
                     Section("Optional") {
                         TextField("Focus", text: $draft.focusText)
-                            .focused($isFocusFieldFocused)
+                            .focused($focusedField, equals: .focus)
                         Picker("Followed focus", selection: $draft.followedFocus) {
                             ForEach(FollowedFocus.allCases) { value in
                                 Text(value.rawValue.capitalized).tag(value)
                             }
                         }
+                        .simultaneousGesture(
+                            TapGesture().onEnded {
+                                focusedField = nil
+                            }
+                        )
                         Stepper("Unforced errors: \(draft.unforcedErrors)", value: $draft.unforcedErrors, in: 0...500)
                         Stepper("Long rallies: \(draft.longRallies)", value: $draft.longRallies, in: 0...500)
                         Stepper("Direction changes: \(draft.directionChanges)", value: $draft.directionChanges, in: 0...500)
                         TextField("Notes", text: $draft.notes, axis: .vertical)
-                            .focused($isNotesFieldFocused)
+                            .focused($focusedField, equals: .notes)
+                    }
+
+                    if draft.isCompetitiveSession {
+                        Section("Match Result (Optional)") {
+                            Toggle("Save match result", isOn: $draft.saveMatchResult)
+
+                            if draft.saveMatchResult {
+                                TextField("Opponent name", text: $draft.opponentName)
+                                    .focused($focusedField, equals: .opponentName)
+
+                                ForEach($draft.setScores) { $setScore in
+                                    VStack(alignment: .leading, spacing: 18) {
+                                        Text("Set \(setScore.setNumber)")
+                                            .font(BaselineTypography.bodyStrong)
+                                        Stepper("Your games: \(setScore.playerGames)", value: $setScore.playerGames, in: 0...30)
+                                            .padding(.top, 4)
+                                            .padding(.bottom, 6)
+                                        Stepper("Opponent games: \(setScore.opponentGames)", value: $setScore.opponentGames, in: 0...30)
+                                    }
+                                    .padding(.vertical, 10)
+                                }
+
+                                Button("Add set") {
+                                    draft.addSetScore()
+                                }
+                                .disabled(draft.setScores.count >= 5)
+
+                                if draft.setScores.count > 1 {
+                                    Button("Remove last set", role: .destructive) {
+                                        draft.removeLastSetScore()
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     if let errorMessage {
@@ -93,23 +152,23 @@ struct NewSessionView: View {
                 }
                 .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.interactively)
-                .simultaneousGesture(
-                    TapGesture().onEnded {
-                        isDurationFieldFocused = false
-                        isFocusFieldFocused = false
-                        isNotesFieldFocused = false
-                    }
-                )
                 .toolbar {
                     ToolbarItemGroup(placement: .keyboard) {
                         Spacer()
                         Button("Done") {
-                            isDurationFieldFocused = false
-                            isFocusFieldFocused = false
-                            isNotesFieldFocused = false
+                            focusedField = nil
                         }
                     }
                 }
+            }
+
+            if focusedField != nil {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        focusedField = nil
+                    }
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -117,12 +176,13 @@ struct NewSessionView: View {
             durationMinutesText = String(draft.durationMinutes)
             lastDurationMinutesValue = draft.durationMinutes
         }
-        .onChange(of: isDurationFieldFocused) { _, isFocused in
-            if isFocused {
+        .onChange(of: focusedField) { oldField, newField in
+            if oldField == .duration, newField != .duration {
+                commitDurationText()
+            }
+            if newField == .duration {
                 lastDurationMinutesValue = draft.durationMinutes
                 durationMinutesText = ""
-            } else {
-                commitDurationText()
             }
         }
         .onChange(of: durationMinutesText) { _, newValue in
@@ -151,7 +211,7 @@ struct NewSessionView: View {
     private func save() {
         do {
             try SessionDraftValidator.validate(draft)
-            let session = draft.buildSession()
+            let session = draft.buildSession(in: modelContext)
             modelContext.insert(session)
 
             OutboxQueue.enqueueCreate(for: session, context: modelContext)
