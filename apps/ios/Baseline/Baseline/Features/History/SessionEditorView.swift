@@ -26,7 +26,7 @@ struct SessionEditorView: View {
         NavigationStack {
             Form {
                 Section("Core") {
-                    DatePicker("Date", selection: $draft.date, displayedComponents: .date)
+                    DatePicker("Date & Time", selection: $draft.date, displayedComponents: [.date, .hourAndMinute])
                     Picker("Type", selection: $draft.sessionType) {
                         ForEach(SessionType.allCases) { type in
                             Text(type.rawValue.capitalized).tag(type)
