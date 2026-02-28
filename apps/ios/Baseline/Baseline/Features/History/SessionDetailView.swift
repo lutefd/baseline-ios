@@ -1,7 +1,13 @@
 import SwiftUI
+import SwiftData
 
 struct SessionDetailView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
     let session: Session
+    @State private var showEditSheet = false
+    @State private var showDeleteAlert = false
 
     var body: some View {
         ZStack {
@@ -26,6 +32,38 @@ struct SessionDetailView: View {
             .listRowSpacing(8)
         }
         .navigationTitle("Session")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        showEditSheet = true
+                    } label: {
+                        Label("Edit", systemImage: "pencil")
+                    }
+
+                    Button(role: .destructive) {
+                        showDeleteAlert = true
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+        }
+        .sheet(isPresented: $showEditSheet) {
+            SessionEditorView(session: session)
+        }
+        .alert("Delete this session?", isPresented: $showDeleteAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                modelContext.delete(session)
+                try? modelContext.save()
+                dismiss()
+            }
+        } message: {
+            Text("This action cannot be undone.")
+        }
     }
 
     private func row(_ title: String, _ value: String) -> some View {
