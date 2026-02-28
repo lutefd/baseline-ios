@@ -29,6 +29,7 @@ struct HomeView: View {
                                 .font(BaselineTypography.body)
                                 .foregroundStyle(BaselineTheme.secondaryText)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
                     HStack(spacing: 12) {
