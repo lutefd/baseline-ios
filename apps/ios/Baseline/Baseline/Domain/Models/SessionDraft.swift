@@ -137,6 +137,7 @@ struct SessionDraft {
             longRallies: longRallies,
             directionChanges: directionChanges,
             notes: notes.isEmpty ? nil : notes,
+            isMatchWin: resolvedMatchWin(),
             opponent: resolvedOpponent(in: modelContext)
         )
 
@@ -158,6 +159,7 @@ struct SessionDraft {
         session.longRallies = longRallies
         session.directionChanges = directionChanges
         session.notes = notes.isEmpty ? nil : notes
+        session.isMatchWin = resolvedMatchWin()
         session.opponent = resolvedOpponent(in: modelContext)
         for score in session.matchSetScores {
             modelContext.delete(score)
@@ -196,6 +198,8 @@ struct SessionDraft {
         if let existingOpponents = try? modelContext.fetch(descriptor),
            let existing = existingOpponents.first {
             existing.name = cleanedName
+            existing.updatedAt = Date()
+            existing.deletedAt = nil
             return existing
         }
 
@@ -215,6 +219,17 @@ struct SessionDraft {
             )
         }
         return normalized.isEmpty ? [MatchSetScoreDraft(setNumber: 1)] : normalized
+    }
+
+    private func resolvedMatchWin() -> Bool? {
+        guard shouldPersistMatchResult else { return nil }
+        let scores = sanitizedSetScores()
+        guard !scores.isEmpty else { return nil }
+
+        let playerSetsWon = scores.filter { $0.playerGames > $0.opponentGames }.count
+        let opponentSetsWon = scores.filter { $0.opponentGames > $0.playerGames }.count
+        guard playerSetsWon != opponentSetsWon else { return nil }
+        return playerSetsWon > opponentSetsWon
     }
 
     private mutating func renumberSetScores() {
