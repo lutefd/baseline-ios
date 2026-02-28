@@ -1,0 +1,9 @@
+.DS_Store
+.build
+DerivedData/
+.swiftpm/
+Package.resolved
+node_modules/
+dist/
+*.xcuserstate
+xcuserdata/
