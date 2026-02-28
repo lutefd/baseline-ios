@@ -55,7 +55,10 @@ struct SparklineView: View {
                 .chartPlotStyle { plot in
                     plot
                         .background(BaselineTheme.chartSurface)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            Rectangle()
+                                .stroke(Color.black.opacity(0.06), lineWidth: 0.6)
+                        )
                 }
                 .chartXAxis(.hidden)
                 .chartYAxis {

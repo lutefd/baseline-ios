@@ -30,11 +30,11 @@ struct HomeView: View {
 
                     HStack(spacing: 12) {
                         metricCard(
-                            title: "Avg Rushed (5)",
+                            title: "Avg Rushed",
                             value: String(format: "%.1f", SessionMetrics.rollingAverageRushed(for: sessions))
                         )
                         metricCard(
-                            title: "Avg Composure (5)",
+                            title: "Avg Composure",
                             value: String(format: "%.1f", SessionMetrics.rollingAverageComposure(for: sessions))
                         )
                     }
