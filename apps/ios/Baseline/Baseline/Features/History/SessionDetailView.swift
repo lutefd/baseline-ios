@@ -14,7 +14,7 @@ struct SessionDetailView: View {
             BaselineScreenBackground()
 
             List {
-                row("Date", session.date.formatted(date: .complete, time: .omitted))
+                row("Date", session.date.formatted(date: .complete, time: .shortened))
                 row("Type", session.sessionType.rawValue.capitalized)
                 row("Duration", "\(session.durationMinutes) min")
                 row("Rushed shots", "\(session.rushedShots)")

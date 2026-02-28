@@ -24,7 +24,7 @@ struct HistoryView: View {
                         BaselineCard {
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(session.date.formatted(date: .abbreviated, time: .omitted))
+                                    Text(session.date.formatted(date: .abbreviated, time: .shortened))
                                         .font(BaselineTypography.bodyStrong)
                                         .kerning(-0.2)
                                         .foregroundStyle(BaselineTheme.primaryText)
