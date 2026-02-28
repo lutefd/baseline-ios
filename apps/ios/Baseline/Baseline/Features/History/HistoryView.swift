@@ -42,6 +42,7 @@ struct HistoryView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .listRowSeparator(.hidden)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button {
                             sessionToEdit = session
