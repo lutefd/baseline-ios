@@ -28,8 +28,61 @@ enum SyncState: String, Codable, CaseIterable, Identifiable {
 }
 
 @Model
+final class Opponent {
+    @Attribute(.unique) var normalizedName: String
+    var name: String
+    var createdAt: Date
+
+    @Relationship(inverse: \Session.opponent) var sessions: [Session] = []
+
+    init(
+        name: String,
+        createdAt: Date = Date()
+    ) {
+        let trimmedName = Self.cleanedName(name)
+        self.name = trimmedName
+        self.normalizedName = Self.normalize(trimmedName)
+        self.createdAt = createdAt
+    }
+
+    static func cleanedName(_ name: String) -> String {
+        let collapsed = name
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        return collapsed.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func normalize(_ name: String) -> String {
+        cleanedName(name).lowercased()
+    }
+}
+
+@Model
+final class MatchSetScore {
+    var setNumber: Int
+    var playerGames: Int
+    var opponentGames: Int
+
+    @Relationship var session: Session?
+
+    init(
+        setNumber: Int,
+        playerGames: Int,
+        opponentGames: Int,
+        session: Session? = nil
+    ) {
+        self.setNumber = setNumber
+        self.playerGames = playerGames
+        self.opponentGames = opponentGames
+        self.session = session
+    }
+}
+
+@Model
 final class Session {
     @Attribute(.unique) var id: UUID
+    var sessionName: String?
     var date: Date
     var sessionType: SessionType
     var durationMinutes: Int
@@ -44,6 +97,9 @@ final class Session {
     var directionChanges: Int?
     var notes: String?
 
+    @Relationship(deleteRule: .nullify) var opponent: Opponent?
+    @Relationship(deleteRule: .cascade, inverse: \MatchSetScore.session) var matchSetScores: [MatchSetScore]
+
     var createdAt: Date
     var updatedAt: Date
     var syncState: SyncState
@@ -51,6 +107,7 @@ final class Session {
 
     init(
         id: UUID = UUID(),
+        sessionName: String? = nil,
         date: Date,
         sessionType: SessionType,
         durationMinutes: Int,
@@ -62,12 +119,16 @@ final class Session {
         longRallies: Int? = nil,
         directionChanges: Int? = nil,
         notes: String? = nil,
+        opponent: Opponent? = nil,
+        matchSetScores: [MatchSetScore] = [],
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         syncState: SyncState = .localOnly,
         remoteID: String? = nil
     ) {
         self.id = id
+        let cleanedSessionName = sessionName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        self.sessionName = cleanedSessionName.isEmpty ? nil : cleanedSessionName
         self.date = date
         self.sessionType = sessionType
         self.durationMinutes = durationMinutes
@@ -79,9 +140,20 @@ final class Session {
         self.longRallies = longRallies
         self.directionChanges = directionChanges
         self.notes = notes
+        self.opponent = opponent
+        self.matchSetScores = matchSetScores
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.syncState = syncState
         self.remoteID = remoteID
+    }
+
+    static func defaultName(for date: Date) -> String {
+        date.formatted(.dateTime.day().month(.abbreviated).year())
+    }
+
+    var displayName: String {
+        let cleanedSessionName = sessionName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return cleanedSessionName.isEmpty ? Self.defaultName(for: date) : cleanedSessionName
     }
 }
