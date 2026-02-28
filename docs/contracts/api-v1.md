@@ -23,11 +23,17 @@ Response:
   {
     "id": "uuid",
     "userId": "uuid",
+    "sessionName": "28 Feb 2026",
     "date": "RFC3339",
     "sessionType": "class|friendly|match",
     "durationMinutes": 60,
     "rushedShots": 12,
     "composure": 6,
+    "opponentId": "uuid|null",
+    "opponentName": "string|null",
+    "matchSetScores": [
+      { "setNumber": 1, "playerGames": 6, "opponentGames": 4 }
+    ],
     "focusText": "build 3 balls",
     "followedFocus": "yes|partial|no",
     "unforcedErrors": 9,
@@ -54,6 +60,39 @@ Headers:
 - `Idempotency-Key: <uuid>`
 
 Request fields are partial. Conflict strategy in backend repo: last-write-wins by `updatedAt`.
+
+## Opponents
+### GET /v1/opponents
+Response:
+```json
+[
+  {
+    "id": "uuid",
+    "name": "string",
+    "matchesPlayed": 3,
+    "lastPlayedAt": "RFC3339"
+  }
+]
+```
+
+### GET /v1/opponents/:id/history
+Response:
+```json
+{
+  "opponent": { "id": "uuid", "name": "string" },
+  "sessions": [
+    {
+      "id": "uuid",
+      "sessionName": "28 Feb 2026",
+      "date": "RFC3339",
+      "sessionType": "friendly|match",
+      "matchSetScores": [
+        { "setNumber": 1, "playerGames": 6, "opponentGames": 4 }
+      ]
+    }
+  ]
+}
+```
 
 ## Stats
 ### GET /v1/stats/weekly-summary
