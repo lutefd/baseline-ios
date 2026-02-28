@@ -18,10 +18,11 @@ struct HistoryView: View {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(session.date.formatted(date: .abbreviated, time: .omitted))
-                                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                            .font(BaselineTypography.bodyStrong)
+                                            .kerning(-0.2)
                                             .foregroundStyle(BaselineTheme.primaryText)
                                         Text(session.sessionType.rawValue.capitalized)
-                                            .font(.caption)
+                                            .font(BaselineTypography.caption)
                                             .foregroundStyle(BaselineTheme.secondaryText)
                                     }
                                     Spacer()
@@ -48,7 +49,7 @@ struct HistoryView: View {
 
     private func metricPill(_ text: String) -> some View {
         Text(text)
-            .font(.caption)
+            .font(BaselineTypography.caption)
             .foregroundStyle(BaselineTheme.primaryText)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)

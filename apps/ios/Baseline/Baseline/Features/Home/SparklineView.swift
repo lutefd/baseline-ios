@@ -26,7 +26,8 @@ struct SparklineView: View {
         BaselineCard {
             VStack(alignment: .leading, spacing: 8) {
                 Text(title)
-                    .font(.headline)
+                    .font(BaselineTypography.sectionTitle)
+                    .kerning(-0.2)
                     .foregroundStyle(BaselineTheme.primaryText)
 
                 Chart(points) { point in

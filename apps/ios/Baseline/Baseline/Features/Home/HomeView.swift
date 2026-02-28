@@ -19,10 +19,11 @@ struct HomeView: View {
                     BaselineCard {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Baseline")
-                                .font(.system(size: 30, weight: .bold, design: .rounded))
+                                .font(BaselineTypography.hero)
+                                .kerning(-0.8)
                                 .foregroundStyle(BaselineTheme.primaryText)
                             Text("Last session: \(lastSessionDate)")
-                                .font(.subheadline)
+                                .font(BaselineTypography.body)
                                 .foregroundStyle(BaselineTheme.secondaryText)
                         }
                     }
@@ -64,10 +65,11 @@ struct HomeView: View {
         BaselineCard {
             VStack(alignment: .leading, spacing: 6) {
                 Text(title)
-                    .font(.caption)
+                    .font(BaselineTypography.cardLabel)
                     .foregroundStyle(BaselineTheme.secondaryText)
                 Text(value)
-                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .font(BaselineTypography.cardValue)
+                    .kerning(-0.4)
                     .foregroundStyle(BaselineTheme.primaryText)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

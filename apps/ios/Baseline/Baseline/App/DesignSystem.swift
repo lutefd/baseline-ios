@@ -14,6 +14,16 @@ enum BaselineTheme {
     static let rowSurface = Color(red: 0.965, green: 0.955, blue: 0.94).opacity(0.72)
 }
 
+enum BaselineTypography {
+    static let hero = Font.system(size: 50, weight: .bold, design: .rounded)
+    static let sectionTitle = Font.system(size: 22, weight: .semibold, design: .rounded)
+    static let cardValue = Font.system(size: 42, weight: .bold, design: .rounded)
+    static let cardLabel = Font.system(size: 16, weight: .medium, design: .rounded)
+    static let bodyStrong = Font.system(size: 19, weight: .semibold, design: .rounded)
+    static let body = Font.system(size: 17, weight: .regular, design: .rounded)
+    static let caption = Font.system(size: 14, weight: .medium, design: .rounded)
+}
+
 struct BaselineScreenBackground: View {
     var body: some View {
         ZStack {

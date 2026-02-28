@@ -61,7 +61,7 @@ struct NewSessionView: View {
                     Button("Save Session") {
                         save()
                     }
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .font(BaselineTypography.bodyStrong)
                     .frame(maxWidth: .infinity)
                     .buttonStyle(.borderedProminent)
                     .tint(BaselineTheme.accent)

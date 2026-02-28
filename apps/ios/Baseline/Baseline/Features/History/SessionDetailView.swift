@@ -31,8 +31,10 @@ struct SessionDetailView: View {
     private func row(_ title: String, _ value: String) -> some View {
         HStack {
             Text(title)
+                .font(BaselineTypography.body)
             Spacer()
             Text(value)
+                .font(BaselineTypography.body)
                 .foregroundStyle(BaselineTheme.secondaryText)
                 .multilineTextAlignment(.trailing)
         }
