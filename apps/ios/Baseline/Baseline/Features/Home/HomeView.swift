@@ -5,6 +5,8 @@ struct HomeView: View {
     @Query(sort: \Session.date, order: .reverse) private var sessions: [Session]
     private let tennisGreen = Color(red: 0.45, green: 0.73, blue: 0.29)
     @State private var selectedSessionID: UUID?
+    @State private var activeChartID: String?
+    @State private var chartSelectionResetToken = 0
 
     private var lastSessionDate: String {
         guard let date = sessions.first?.date else { return "No sessions yet" }
@@ -44,10 +46,14 @@ struct HomeView: View {
                         title: "Rushed Shots",
                         points: SessionMetrics.rushedTrendPoints(from: sessions),
                         lineColor: BaselineTheme.accent,
-                        fillColor: BaselineTheme.accentSoft.opacity(0.3),
                         pointColor: tennisGreen,
+                        chartID: "rushed",
+                        activeChartID: $activeChartID,
+                        clearSelectionToken: chartSelectionResetToken,
                         valueFormatter: { String(format: "%.0f", $0) },
                         onSelectSession: { sessionID in
+                            chartSelectionResetToken += 1
+                            activeChartID = nil
                             selectedSessionID = sessionID
                         }
                     )
@@ -56,10 +62,14 @@ struct HomeView: View {
                         title: "Composure",
                         points: SessionMetrics.composureTrendPoints(from: sessions),
                         lineColor: Color(red: 0.34, green: 0.36, blue: 0.39),
-                        fillColor: Color(red: 0.95, green: 0.94, blue: 0.92).opacity(0.42),
                         pointColor: tennisGreen,
+                        chartID: "composure",
+                        activeChartID: $activeChartID,
+                        clearSelectionToken: chartSelectionResetToken,
                         valueFormatter: { String(format: "%.0f", $0) },
                         onSelectSession: { sessionID in
+                            chartSelectionResetToken += 1
+                            activeChartID = nil
                             selectedSessionID = sessionID
                         }
                     )
@@ -88,6 +98,8 @@ struct HomeView: View {
             set: { isPresented in
                 if !isPresented {
                     selectedSessionID = nil
+                    activeChartID = nil
+                    chartSelectionResetToken += 1
                 }
             }
         )

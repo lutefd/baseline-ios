@@ -1,21 +1,18 @@
 import SwiftUI
 import Charts
-import os.log
 
 struct SparklineView: View {
-    private let logger = Logger(subsystem: "Baseline", category: "SparklineView")
-
     let title: String
     let points: [SessionTrendPoint]
     let lineColor: Color
-    let fillColor: Color
     let pointColor: Color
+    let chartID: String
+    @Binding var activeChartID: String?
+    var clearSelectionToken: Int = 0
     var valueFormatter: (Double) -> String = { String(format: "%.1f", $0) }
     var onSelectSession: (UUID) -> Void = { _ in }
 
-    @State private var selectedPointID: UUID?
-
-    // MARK: - Derived Data
+    @State private var selectedIndex: Int?
 
     private struct ChartPoint: Identifiable {
         let id: UUID
@@ -31,8 +28,9 @@ struct SparklineView: View {
     }
 
     private var selectedPoint: ChartPoint? {
-        guard let selectedPointID else { return nil }
-        return chartPoints.first { $0.id == selectedPointID }
+        guard let selectedIndex else { return nil }
+        guard chartPoints.indices.contains(selectedIndex) else { return nil }
+        return chartPoints[selectedIndex]
     }
 
     private var yDomain: ClosedRange<Double> {
@@ -49,196 +47,190 @@ struct SparklineView: View {
         return (minValue - pad)...(maxValue + pad)
     }
 
-    // MARK: - Body
-
     var body: some View {
         BaselineCard {
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(title)
-                        .font(BaselineTypography.sectionTitle)
-                        .kerning(-0.2)
-                        .foregroundStyle(BaselineTheme.primaryText)
+                Text(title)
+                    .font(BaselineTypography.sectionTitle)
+                    .kerning(-0.2)
+                    .foregroundStyle(BaselineTheme.primaryText)
 
-                    Spacer()
+                Chart {
+                    ForEach(chartPoints) { chartPoint in
+                        AreaMark(
+                            x: .value("Index", chartPoint.index),
+                            yStart: .value("Min", yDomain.lowerBound),
+                            yEnd: .value("Value", chartPoint.value)
+                        )
+                        .interpolationMethod(.linear)
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [lineColor.opacity(0.30), lineColor.opacity(0.14), .clear],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
 
-                    if selectedPoint != nil {
-                        Button {
-                            withAnimation(.easeOut(duration: 0.15)) {
-                                selectedPointID = nil
-                            }
-                        } label: {
-                            Text("Clear")
-                                .font(BaselineTypography.caption)
-                                .foregroundStyle(BaselineTheme.secondaryText)
-                        }
-                        .buttonStyle(.plain)
-                        .transition(.opacity)
+                        LineMark(
+                            x: .value("Index", chartPoint.index),
+                            y: .value("Value", chartPoint.value)
+                        )
+                        .foregroundStyle(lineColor)
+                        .interpolationMethod(.linear)
+                        .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
+
+                        PointMark(
+                            x: .value("Index", chartPoint.index),
+                            y: .value("Value", chartPoint.value)
+                        )
+                        .foregroundStyle(pointColor)
+                        .symbolSize(selectedIndex == chartPoint.index ? 54 : 26)
+                    }
+
+                    if let selectedPoint {
+                        RuleMark(x: .value("Selected Index", selectedPoint.index))
+                            .foregroundStyle(lineColor.opacity(0.25))
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+
+                        PointMark(
+                            x: .value("Selected Index", selectedPoint.index),
+                            y: .value("Selected Value", selectedPoint.value)
+                        )
+                        .foregroundStyle(lineColor)
+                        .symbolSize(86)
                     }
                 }
-
-                // The chart with gesture overlay
-                chartBody
-                    .frame(height: 136)
-
-                // Badge shown below the chart when a point is selected
-                if let selectedPoint {
-                    badgeButton(for: selectedPoint)
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .chartYScale(domain: yDomain)
+                .chartXScale(domain: 0...max(chartPoints.count - 1, 0))
+                .chartPlotStyle { plot in
+                    plot
+                        .background(BaselineTheme.chartSurface)
+                        .overlay(
+                            Rectangle()
+                                .stroke(Color.black.opacity(0.06), lineWidth: 0.6)
+                        )
                 }
+                .chartXAxis(.hidden)
+                .chartYAxis {
+                    AxisMarks(position: .leading) {
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                            .foregroundStyle(Color.black.opacity(0.08))
+                        AxisValueLabel()
+                            .foregroundStyle(BaselineTheme.secondaryText)
+                    }
+                }
+                .chartOverlay { proxy in
+                    GeometryReader { geometry in
+                        Rectangle()
+                            .fill(.clear)
+                            .contentShape(Rectangle())
+                            .simultaneousGesture(
+                                SpatialTapGesture()
+                                    .onEnded { value in
+                                        guard let plotFrame = proxy.plotFrame else {
+                                            return
+                                        }
+
+                                        let plotRect = geometry[plotFrame]
+                                        let xInPlot = value.location.x - plotRect.origin.x
+                                        let yInPlot = value.location.y - plotRect.origin.y
+                                        if xInPlot < 0 || xInPlot > plotRect.width || yInPlot < 0 || yInPlot > plotRect.height {
+                                            clearSelection()
+                                            return
+                                        }
+                                        updateSelection(atPlotX: xInPlot, plotWidth: plotRect.width)
+                                    }
+                            )
+                            .highPriorityGesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { value in
+                                        guard let plotFrame = proxy.plotFrame else {
+                                            return
+                                        }
+
+                                        let plotRect = geometry[plotFrame]
+                                        let xInPlot = value.location.x - plotRect.origin.x
+                                        if xInPlot < 0 || xInPlot > plotRect.width {
+                                            clearSelection()
+                                            return
+                                        }
+                                        updateSelection(atPlotX: xInPlot, plotWidth: plotRect.width)
+                                    }
+                            )
+
+                        if let selectedPoint,
+                           let plotFrame = proxy.plotFrame,
+                           let xPosition = proxy.position(forX: selectedPoint.index),
+                           let yPosition = proxy.position(forY: selectedPoint.value) {
+                            let plotRect = geometry[plotFrame]
+                            Button {
+                                onSelectSession(selectedPoint.session.sessionID)
+                            } label: {
+                                selectedBadge(for: selectedPoint)
+                            }
+                            .buttonStyle(.plain)
+                            .position(
+                                x: min(max(plotRect.origin.x + xPosition, 70), geometry.size.width - 70),
+                                y: max(18, plotRect.origin.y + yPosition - 34)
+                            )
+                        }
+                    }
+                }
+                .frame(height: 136)
             }
-            .animation(.easeOut(duration: 0.15), value: selectedPointID)
+        }
+        .onChange(of: activeChartID) { _, newValue in
+            if newValue != chartID {
+                clearSelection()
+            }
+        }
+        .onChange(of: clearSelectionToken) { _, _ in
+            clearSelection()
         }
     }
 
-    // MARK: - Chart
-
-    private var chartBody: some View {
-        Chart {
-            ForEach(chartPoints) { chartPoint in
-                AreaMark(
-                    x: .value("Index", chartPoint.index),
-                    yStart: .value("Min", yDomain.lowerBound),
-                    yEnd: .value("Value", chartPoint.value)
-                )
-                .interpolationMethod(.linear)
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [lineColor.opacity(0.38), fillColor.opacity(0.24), .clear],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-
-                LineMark(
-                    x: .value("Index", chartPoint.index),
-                    y: .value("Value", chartPoint.value)
-                )
-                .foregroundStyle(lineColor)
-                .interpolationMethod(.linear)
-                .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
-
-                PointMark(
-                    x: .value("Index", chartPoint.index),
-                    y: .value("Value", chartPoint.value)
-                )
-                .foregroundStyle(selectedPoint?.index == chartPoint.index ? lineColor : pointColor)
-                .symbolSize(selectedPoint?.index == chartPoint.index ? 54 : 26)
-            }
-
-            if let selectedPoint {
-                RuleMark(x: .value("Selected", selectedPoint.index))
-                    .foregroundStyle(lineColor.opacity(0.25))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-            }
-        }
-        .chartYScale(domain: yDomain)
-        .chartXScale(domain: 0...max(chartPoints.count - 1, 0))
-        // Gesture overlay — same pattern as your working example
-        .chartOverlay { proxy in
-            GeometryReader { geo in
-                Rectangle()
-                    .fill(.clear)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                guard let plotFrame = proxy.plotFrame else {
-                                    logger.debug("plotFrame is nil")
-                                    return
-                                }
-
-                                let plotOrigin = geo[plotFrame].origin
-                                let locationInPlot = CGPoint(
-                                    x: value.location.x - plotOrigin.x,
-                                    y: 0
-                                )
-
-                                guard let rawIndex: Double = proxy.value(atX: locationInPlot.x) else {
-                                    logger.debug("proxy.value returned nil at x=\(locationInPlot.x)")
-                                    return
-                                }
-
-                                // Snap to nearest chart point
-                                let nearest = chartPoints.min { a, b in
-                                    abs(Double(a.index) - rawIndex) < abs(Double(b.index) - rawIndex)
-                                }
-
-                                if let nearest {
-                                    logger.debug("Selected index=\(nearest.index) value=\(nearest.value)")
-                                    selectedPointID = nearest.id
-                                }
-                            }
-                            .onEnded { _ in
-                                // Keep selection visible (don't clear on end)
-                            }
-                    )
-            }
-        }
-        // Second overlay for the rule mark visual indicator
-        .chartOverlay { proxy in
-            if let selectedPoint {
-                let xPos = proxy.position(forX: selectedPoint.index) ?? 0
-
-                Circle()
-                    .fill(lineColor)
-                    .frame(width: 10, height: 10)
-                    .position(
-                        x: xPos,
-                        y: proxy.position(forY: selectedPoint.value) ?? 0
-                    )
-            }
-        }
-        .chartPlotStyle { plot in
-            plot
-                .background(BaselineTheme.chartSurface)
-                .overlay(
-                    Rectangle()
-                        .stroke(Color.black.opacity(0.06), lineWidth: 0.6)
-                )
-        }
-        .chartXAxis(.hidden)
-        .chartYAxis {
-            AxisMarks(position: .leading) {
-                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                    .foregroundStyle(Color.black.opacity(0.08))
-                AxisValueLabel()
+    private func selectedBadge(for point: ChartPoint) -> some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(point.session.date.formatted(date: .abbreviated, time: .omitted))
+                    .font(BaselineTypography.caption)
+                    .foregroundStyle(BaselineTheme.primaryText)
+                Text("\(point.session.sessionTypeLabel) • \(valueFormatter(point.value))")
+                    .font(BaselineTypography.caption)
                     .foregroundStyle(BaselineTheme.secondaryText)
             }
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(BaselineTheme.secondaryText.opacity(0.8))
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(BaselineTheme.rowSurface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(BaselineTheme.primaryText.opacity(0.14), lineWidth: 0.8)
+        )
     }
 
-    // MARK: - Badge
+    private func updateSelection(atPlotX xInPlot: CGFloat, plotWidth: CGFloat) {
+        guard !chartPoints.isEmpty else { return }
+        guard plotWidth > 0 else { return }
 
-    private func badgeButton(for point: ChartPoint) -> some View {
-        Button {
-            logger.debug("Badge tapped → session \(point.session.sessionID.uuidString, privacy: .public)")
-            onSelectSession(point.session.sessionID)
-        } label: {
-            HStack(spacing: 6) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(point.session.date.formatted(date: .abbreviated, time: .omitted))
-                        .font(BaselineTypography.caption)
-                        .foregroundStyle(BaselineTheme.primaryText)
-                    Text("\(point.session.sessionTypeLabel) • \(valueFormatter(point.value))")
-                        .font(BaselineTypography.caption)
-                        .foregroundStyle(BaselineTheme.secondaryText)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(BaselineTheme.secondaryText)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(BaselineTheme.rowSurface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(BaselineTheme.primaryText.opacity(0.14), lineWidth: 0.8)
-            )
+        if chartPoints.count == 1 {
+            activeChartID = chartID
+            selectedIndex = 0
+            return
         }
-        .buttonStyle(.plain)
+
+        let clampedX = min(max(xInPlot, 0), plotWidth)
+        let step = plotWidth / CGFloat(chartPoints.count - 1)
+        let nearestIndex = Int((clampedX / step).rounded())
+        activeChartID = chartID
+        selectedIndex = nearestIndex
+    }
+
+    private func clearSelection() {
+        selectedIndex = nil
     }
 }
