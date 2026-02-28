@@ -19,91 +19,100 @@ struct NewSessionView: View {
         ZStack {
             BaselineScreenBackground()
 
-            Form {
-                Section("Core") {
-                    DatePicker("Date & Time", selection: $draft.date, displayedComponents: [.date, .hourAndMinute])
-                    Picker("Type", selection: $draft.sessionType) {
-                        ForEach(SessionType.allCases) { type in
-                            Text(type.rawValue.capitalized).tag(type)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("New Session")
+                    .font(BaselineTypography.hero)
+                    .kerning(-0.8)
+                    .foregroundStyle(BaselineTheme.primaryText)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+
+                Form {
+                    Section("Core") {
+                        DatePicker("Date & Time", selection: $draft.date, displayedComponents: [.date, .hourAndMinute])
+                        Picker("Type", selection: $draft.sessionType) {
+                            ForEach(SessionType.allCases) { type in
+                                Text(type.rawValue.capitalized).tag(type)
+                            }
+                        }
+                        HStack {
+                            Text("Duration (min)")
+                            Spacer()
+                            TextField("1-240", text: $durationMinutesText)
+                                .keyboardType(.numberPad)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 84)
+                                .focused($isDurationFieldFocused)
+                        }
+                        Stepper("Rushed shots: \(draft.rushedShots)", value: $draft.rushedShots, in: 0...500)
+                        VStack(alignment: .leading) {
+                            Text("Composure: \(draft.composure)")
+                            Slider(
+                                value: Binding(
+                                    get: { Double(draft.composure) },
+                                    set: { draft.composure = Int($0.rounded()) }
+                                ),
+                                in: 1...10,
+                                step: 1
+                            )
+                            .tint(BaselineTheme.accent)
                         }
                     }
-                    HStack {
-                        Text("Duration (min)")
-                        Spacer()
-                        TextField("1-240", text: $durationMinutesText)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 84)
-                            .focused($isDurationFieldFocused)
+
+                    Section("Optional") {
+                        TextField("Focus", text: $draft.focusText)
+                            .focused($isFocusFieldFocused)
+                        Picker("Followed focus", selection: $draft.followedFocus) {
+                            ForEach(FollowedFocus.allCases) { value in
+                                Text(value.rawValue.capitalized).tag(value)
+                            }
+                        }
+                        Stepper("Unforced errors: \(draft.unforcedErrors)", value: $draft.unforcedErrors, in: 0...500)
+                        Stepper("Long rallies: \(draft.longRallies)", value: $draft.longRallies, in: 0...500)
+                        Stepper("Direction changes: \(draft.directionChanges)", value: $draft.directionChanges, in: 0...500)
+                        TextField("Notes", text: $draft.notes, axis: .vertical)
+                            .focused($isNotesFieldFocused)
                     }
-                    Stepper("Rushed shots: \(draft.rushedShots)", value: $draft.rushedShots, in: 0...500)
-                    VStack(alignment: .leading) {
-                        Text("Composure: \(draft.composure)")
-                        Slider(
-                            value: Binding(
-                                get: { Double(draft.composure) },
-                                set: { draft.composure = Int($0.rounded()) }
-                            ),
-                            in: 1...10,
-                            step: 1
-                        )
+
+                    if let errorMessage {
+                        Section {
+                            Text(errorMessage)
+                                .foregroundStyle(.red)
+                        }
+                    }
+
+                    Section {
+                        Button("Save Session") {
+                            save()
+                        }
+                        .font(BaselineTypography.bodyStrong)
+                        .frame(maxWidth: .infinity)
+                        .buttonStyle(.borderedProminent)
                         .tint(BaselineTheme.accent)
                     }
                 }
-
-                Section("Optional") {
-                    TextField("Focus", text: $draft.focusText)
-                        .focused($isFocusFieldFocused)
-                    Picker("Followed focus", selection: $draft.followedFocus) {
-                        ForEach(FollowedFocus.allCases) { value in
-                            Text(value.rawValue.capitalized).tag(value)
-                        }
-                    }
-                    Stepper("Unforced errors: \(draft.unforcedErrors)", value: $draft.unforcedErrors, in: 0...500)
-                    Stepper("Long rallies: \(draft.longRallies)", value: $draft.longRallies, in: 0...500)
-                    Stepper("Direction changes: \(draft.directionChanges)", value: $draft.directionChanges, in: 0...500)
-                    TextField("Notes", text: $draft.notes, axis: .vertical)
-                        .focused($isNotesFieldFocused)
-                }
-
-                if let errorMessage {
-                    Section {
-                        Text(errorMessage)
-                            .foregroundStyle(.red)
-                    }
-                }
-
-                Section {
-                    Button("Save Session") {
-                        save()
-                    }
-                    .font(BaselineTypography.bodyStrong)
-                    .frame(maxWidth: .infinity)
-                    .buttonStyle(.borderedProminent)
-                    .tint(BaselineTheme.accent)
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .scrollDismissesKeyboard(.interactively)
-            .simultaneousGesture(
-                TapGesture().onEnded {
-                    isDurationFieldFocused = false
-                    isFocusFieldFocused = false
-                    isNotesFieldFocused = false
-                }
-            )
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") {
+                .scrollContentBackground(.hidden)
+                .scrollDismissesKeyboard(.interactively)
+                .simultaneousGesture(
+                    TapGesture().onEnded {
                         isDurationFieldFocused = false
                         isFocusFieldFocused = false
                         isNotesFieldFocused = false
                     }
+                )
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("Done") {
+                            isDurationFieldFocused = false
+                            isFocusFieldFocused = false
+                            isNotesFieldFocused = false
+                        }
+                    }
                 }
             }
         }
-        .navigationTitle("New Session")
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             durationMinutesText = String(draft.durationMinutes)
             lastDurationMinutesValue = draft.durationMinutes

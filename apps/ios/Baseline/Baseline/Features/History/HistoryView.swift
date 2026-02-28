@@ -16,54 +16,64 @@ struct HistoryView: View {
         ZStack {
             BaselineScreenBackground()
 
-            List {
-                ForEach(visibleSessions) { session in
-                    NavigationLink {
-                        SessionDetailView(session: session)
-                    } label: {
-                        BaselineCard {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(session.date.formatted(date: .abbreviated, time: .shortened))
-                                        .font(BaselineTypography.bodyStrong)
-                                        .kerning(-0.2)
-                                        .foregroundStyle(BaselineTheme.primaryText)
-                                    Text(session.sessionType.rawValue.capitalized)
-                                        .font(BaselineTypography.caption)
-                                        .foregroundStyle(BaselineTheme.secondaryText)
-                                }
-                                Spacer()
-                                VStack(alignment: .trailing, spacing: 4) {
-                                    metricPill("C \(session.composure)")
-                                    metricPill("R \(session.rushedShots)")
-                                }
-                            }
-                            .padding(.vertical, 2)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .listRowSeparator(.hidden)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button {
-                            sessionToEdit = session
-                        } label: {
-                            Label("Edit", systemImage: "pencil")
-                        }
-                        .tint(BaselineTheme.accent)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("History")
+                    .font(BaselineTypography.hero)
+                    .kerning(-0.8)
+                    .foregroundStyle(BaselineTheme.primaryText)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
 
-                        Button(role: .destructive) {
-                            sessionToDelete = session
+                List {
+                    ForEach(visibleSessions) { session in
+                        NavigationLink {
+                            SessionDetailView(session: session)
                         } label: {
-                            Label("Delete", systemImage: "trash")
+                            BaselineCard {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(session.date.formatted(date: .abbreviated, time: .shortened))
+                                            .font(BaselineTypography.bodyStrong)
+                                            .kerning(-0.2)
+                                            .foregroundStyle(BaselineTheme.primaryText)
+                                        Text(session.sessionType.rawValue.capitalized)
+                                            .font(BaselineTypography.caption)
+                                            .foregroundStyle(BaselineTheme.secondaryText)
+                                    }
+                                    Spacer()
+                                    VStack(alignment: .trailing, spacing: 4) {
+                                        metricPill("C \(session.composure)")
+                                        metricPill("R \(session.rushedShots)")
+                                    }
+                                }
+                                .padding(.vertical, 2)
+                            }
                         }
+                        .buttonStyle(.plain)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button {
+                                sessionToEdit = session
+                            } label: {
+                                Label("Edit", systemImage: "pencil")
+                            }
+                            .tint(BaselineTheme.accent)
+
+                            Button(role: .destructive) {
+                                sessionToDelete = session
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                        .listRowBackground(Color.clear)
                     }
-                    .listRowBackground(Color.clear)
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
         }
-        .navigationTitle("History")
+        .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $sessionToEdit) { session in
             SessionEditorView(session: session)
         }
