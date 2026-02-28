@@ -14,6 +14,22 @@ struct SessionDraft {
     var directionChanges: Int = 0
     var notes: String = ""
 
+    init() {}
+
+    init(session: Session) {
+        date = session.date
+        sessionType = session.sessionType
+        durationMinutes = session.durationMinutes
+        rushedShots = session.rushedShots
+        composure = session.composure
+        focusText = session.focusText ?? ""
+        followedFocus = session.followedFocus ?? .partial
+        unforcedErrors = session.unforcedErrors ?? 0
+        longRallies = session.longRallies ?? 0
+        directionChanges = session.directionChanges ?? 0
+        notes = session.notes ?? ""
+    }
+
     func buildSession() -> Session {
         Session(
             date: date,
@@ -28,5 +44,21 @@ struct SessionDraft {
             directionChanges: directionChanges,
             notes: notes.isEmpty ? nil : notes
         )
+    }
+
+    func apply(to session: Session) {
+        session.date = date
+        session.sessionType = sessionType
+        session.durationMinutes = durationMinutes
+        session.rushedShots = rushedShots
+        session.composure = composure
+        session.focusText = focusText.isEmpty ? nil : focusText
+        session.followedFocus = focusText.isEmpty ? nil : followedFocus
+        session.unforcedErrors = unforcedErrors
+        session.longRallies = longRallies
+        session.directionChanges = directionChanges
+        session.notes = notes.isEmpty ? nil : notes
+        session.updatedAt = Date()
+        session.syncState = session.remoteID == nil ? .localOnly : .pendingUpdate
     }
 }
