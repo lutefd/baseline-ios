@@ -69,14 +69,17 @@ struct BaselineCard<Content: View>: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(BaselineTheme.cardTint)
+                    .allowsHitTesting(false)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .stroke(BaselineTheme.border, lineWidth: 1)
+                    .allowsHitTesting(false)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .stroke(BaselineTheme.innerShadow, lineWidth: 0.25)
+                    .allowsHitTesting(false)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -88,6 +91,7 @@ struct BaselineCard<Content: View>: View {
                         ),
                         lineWidth: 1
                     )
+                    .allowsHitTesting(false)
             )
             .shadow(color: BaselineTheme.innerShadow, radius: 16, x: 0, y: 9)
     }
