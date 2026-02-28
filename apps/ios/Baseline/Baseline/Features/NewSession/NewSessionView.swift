@@ -6,6 +6,11 @@ struct NewSessionView: View {
     @State private var draft = SessionDraft()
     @State private var errorMessage: String?
     @State private var startedAt = Date()
+    @State private var durationMinutesText = "60"
+    @State private var lastDurationMinutesValue = 60
+    @FocusState private var isDurationFieldFocused: Bool
+    @FocusState private var isFocusFieldFocused: Bool
+    @FocusState private var isNotesFieldFocused: Bool
     var onSessionSaved: () -> Void = {}
 
     private let telemetry = TelemetryStore()
@@ -25,10 +30,11 @@ struct NewSessionView: View {
                     HStack {
                         Text("Duration (min)")
                         Spacer()
-                        TextField("1-240", value: durationMinutesBinding, format: .number)
+                        TextField("1-240", text: $durationMinutesText)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 84)
+                            .focused($isDurationFieldFocused)
                     }
                     Stepper("Rushed shots: \(draft.rushedShots)", value: $draft.rushedShots, in: 0...500)
                     VStack(alignment: .leading) {
@@ -47,6 +53,7 @@ struct NewSessionView: View {
 
                 Section("Optional") {
                     TextField("Focus", text: $draft.focusText)
+                        .focused($isFocusFieldFocused)
                     Picker("Followed focus", selection: $draft.followedFocus) {
                         ForEach(FollowedFocus.allCases) { value in
                             Text(value.rawValue.capitalized).tag(value)
@@ -56,6 +63,7 @@ struct NewSessionView: View {
                     Stepper("Long rallies: \(draft.longRallies)", value: $draft.longRallies, in: 0...500)
                     Stepper("Direction changes: \(draft.directionChanges)", value: $draft.directionChanges, in: 0...500)
                     TextField("Notes", text: $draft.notes, axis: .vertical)
+                        .focused($isNotesFieldFocused)
                 }
 
                 if let errorMessage {
@@ -76,15 +84,59 @@ struct NewSessionView: View {
                 }
             }
             .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.interactively)
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    isDurationFieldFocused = false
+                    isFocusFieldFocused = false
+                    isNotesFieldFocused = false
+                }
+            )
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        isDurationFieldFocused = false
+                        isFocusFieldFocused = false
+                        isNotesFieldFocused = false
+                    }
+                }
+            }
         }
         .navigationTitle("New Session")
+        .onAppear {
+            durationMinutesText = String(draft.durationMinutes)
+            lastDurationMinutesValue = draft.durationMinutes
+        }
+        .onChange(of: isDurationFieldFocused) { _, isFocused in
+            if isFocused {
+                lastDurationMinutesValue = draft.durationMinutes
+                durationMinutesText = ""
+            } else {
+                commitDurationText()
+            }
+        }
+        .onChange(of: durationMinutesText) { _, newValue in
+            let digitsOnly = newValue.filter(\.isNumber)
+            if digitsOnly != newValue {
+                durationMinutesText = digitsOnly
+                return
+            }
+
+            guard !digitsOnly.isEmpty, let value = Int(digitsOnly) else { return }
+            draft.durationMinutes = min(max(value, 1), 240)
+        }
     }
 
-    private var durationMinutesBinding: Binding<Int> {
-        Binding(
-            get: { draft.durationMinutes },
-            set: { draft.durationMinutes = min(max($0, 1), 240) }
-        )
+    private func commitDurationText() {
+        guard let value = Int(durationMinutesText), !durationMinutesText.isEmpty else {
+            draft.durationMinutes = min(max(lastDurationMinutesValue, 1), 240)
+            durationMinutesText = String(draft.durationMinutes)
+            return
+        }
+
+        draft.durationMinutes = min(max(value, 1), 240)
+        durationMinutesText = String(draft.durationMinutes)
     }
 
     private func save() {
@@ -100,6 +152,8 @@ struct NewSessionView: View {
             telemetry.recordSave(formDurationSeconds: Date().timeIntervalSince(startedAt))
             draft = SessionDraft()
             startedAt = Date()
+            durationMinutesText = String(draft.durationMinutes)
+            lastDurationMinutesValue = draft.durationMinutes
             errorMessage = nil
             onSessionSaved()
         } catch {
