@@ -29,20 +29,29 @@ enum SyncState: String, Codable, CaseIterable, Identifiable {
 
 @Model
 final class Opponent {
+    @Attribute(.unique) var id: UUID = UUID()
     @Attribute(.unique) var normalizedName: String
     var name: String
-    var createdAt: Date
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
+    var deletedAt: Date?
 
     @Relationship(inverse: \Session.opponent) var sessions: [Session] = []
 
     init(
+        id: UUID = UUID(),
         name: String,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        deletedAt: Date? = nil
     ) {
+        self.id = id
         let trimmedName = Self.cleanedName(name)
         self.name = trimmedName
         self.normalizedName = Self.normalize(trimmedName)
         self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
     }
 
     static func cleanedName(_ name: String) -> String {
@@ -60,21 +69,33 @@ final class Opponent {
 
 @Model
 final class MatchSetScore {
+    @Attribute(.unique) var id: UUID = UUID()
     var setNumber: Int
     var playerGames: Int
     var opponentGames: Int
+    var createdAt: Date = Date()
+    var updatedAt: Date = Date()
+    var deletedAt: Date?
 
     @Relationship var session: Session?
 
     init(
+        id: UUID = UUID(),
         setNumber: Int,
         playerGames: Int,
         opponentGames: Int,
-        session: Session? = nil
+        session: Session? = nil,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        deletedAt: Date? = nil
     ) {
+        self.id = id
         self.setNumber = setNumber
         self.playerGames = playerGames
         self.opponentGames = opponentGames
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
         self.session = session
     }
 }
@@ -96,12 +117,14 @@ final class Session {
     var longRallies: Int?
     var directionChanges: Int?
     var notes: String?
+    var isMatchWin: Bool?
 
     @Relationship(deleteRule: .nullify) var opponent: Opponent?
     @Relationship(deleteRule: .cascade, inverse: \MatchSetScore.session) var matchSetScores: [MatchSetScore]
 
     var createdAt: Date
     var updatedAt: Date
+    var deletedAt: Date?
     var syncState: SyncState
     var remoteID: String?
 
@@ -119,10 +142,12 @@ final class Session {
         longRallies: Int? = nil,
         directionChanges: Int? = nil,
         notes: String? = nil,
+        isMatchWin: Bool? = nil,
         opponent: Opponent? = nil,
         matchSetScores: [MatchSetScore] = [],
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
+        deletedAt: Date? = nil,
         syncState: SyncState = .localOnly,
         remoteID: String? = nil
     ) {
@@ -140,10 +165,12 @@ final class Session {
         self.longRallies = longRallies
         self.directionChanges = directionChanges
         self.notes = notes
+        self.isMatchWin = isMatchWin
         self.opponent = opponent
         self.matchSetScores = matchSetScores
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
         self.syncState = syncState
         self.remoteID = remoteID
     }
