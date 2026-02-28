@@ -25,7 +25,14 @@ struct SessionEditorView: View {
                             Text(type.rawValue.capitalized).tag(type)
                         }
                     }
-                    Stepper("Duration: \(draft.durationMinutes) min", value: $draft.durationMinutes, in: 1...240)
+                    HStack {
+                        Text("Duration (min)")
+                        Spacer()
+                        TextField("1-240", value: durationMinutesBinding, format: .number)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 84)
+                    }
                     Stepper("Rushed shots: \(draft.rushedShots)", value: $draft.rushedShots, in: 0...500)
                     VStack(alignment: .leading) {
                         Text("Composure: \(draft.composure)")
@@ -76,6 +83,13 @@ struct SessionEditorView: View {
                 }
             }
         }
+    }
+
+    private var durationMinutesBinding: Binding<Int> {
+        Binding(
+            get: { draft.durationMinutes },
+            set: { draft.durationMinutes = min(max($0, 1), 240) }
+        )
     }
 
     private func save() {
