@@ -14,8 +14,11 @@ struct SessionDetailView: View {
             BaselineScreenBackground()
 
             List {
+                row("Name", session.displayName)
                 row("Date", session.date.formatted(date: .complete, time: .shortened))
                 row("Type", session.sessionType.rawValue.capitalized)
+                row("Opponent", session.opponent?.name ?? "-")
+                row("Match score", matchScoreSummary)
                 row("Duration", "\(session.durationMinutes) min")
                 row("Rushed shots", "\(session.rushedShots)")
                 row("Composure", "\(session.composure)")
@@ -64,6 +67,16 @@ struct SessionDetailView: View {
         } message: {
             Text("This action cannot be undone.")
         }
+    }
+
+    private var matchScoreSummary: String {
+        let sortedScores = session.matchSetScores.sorted { lhs, rhs in
+            lhs.setNumber < rhs.setNumber
+        }
+        guard !sortedScores.isEmpty else { return "-" }
+        return sortedScores
+            .map { "\($0.playerGames)-\($0.opponentGames)" }
+            .joined(separator: ", ")
     }
 
     private func row(_ title: String, _ value: String) -> some View {

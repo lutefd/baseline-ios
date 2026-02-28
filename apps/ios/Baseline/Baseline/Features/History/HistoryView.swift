@@ -32,11 +32,11 @@ struct HistoryView: View {
                             BaselineCard {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text(session.date.formatted(date: .abbreviated, time: .shortened))
+                                        Text(session.displayName)
                                             .font(BaselineTypography.bodyStrong)
                                             .kerning(-0.2)
                                             .foregroundStyle(BaselineTheme.primaryText)
-                                        Text(session.sessionType.rawValue.capitalized)
+                                        Text(summarySubtitle(for: session))
                                             .font(BaselineTypography.caption)
                                             .foregroundStyle(BaselineTheme.secondaryText)
                                     }
@@ -110,5 +110,13 @@ struct HistoryView: View {
                 .stroke(.white.opacity(0.5), lineWidth: 0.8)
             )
             .clipShape(Capsule())
+    }
+
+    private func summarySubtitle(for session: Session) -> String {
+        let dateText = session.date.formatted(date: .abbreviated, time: .shortened)
+        if let opponent = session.opponent?.name {
+            return "\(session.sessionType.rawValue.capitalized) • vs \(opponent) • \(dateText)"
+        }
+        return "\(session.sessionType.rawValue.capitalized) • \(dateText)"
     }
 }
