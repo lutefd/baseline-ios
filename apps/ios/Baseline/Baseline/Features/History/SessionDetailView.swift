@@ -22,6 +22,8 @@ struct SessionDetailView: View {
                 row("Notes", session.notes ?? "-")
             }
             .scrollContentBackground(.hidden)
+            .listStyle(.insetGrouped)
+            .listRowSpacing(8)
         }
         .navigationTitle("Session")
     }
@@ -34,6 +36,7 @@ struct SessionDetailView: View {
                 .foregroundStyle(BaselineTheme.secondaryText)
                 .multilineTextAlignment(.trailing)
         }
-        .listRowBackground(Color.white.opacity(0.62))
+        .padding(.vertical, 2)
+        .listRowBackground(BaselineTheme.rowSurface)
     }
 }

@@ -8,29 +8,40 @@ struct HistoryView: View {
         ZStack {
             BaselineScreenBackground()
 
-            List(sessions) { session in
-                NavigationLink {
-                    SessionDetailView(session: session)
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(session.date.formatted(date: .abbreviated, time: .omitted))
-                                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                            Text(session.sessionType.rawValue.capitalized)
-                                .font(.caption)
-                                .foregroundStyle(BaselineTheme.secondaryText)
+            ScrollView {
+                LazyVStack(spacing: 10) {
+                    ForEach(sessions) { session in
+                        NavigationLink {
+                            SessionDetailView(session: session)
+                        } label: {
+                            BaselineCard {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(session.date.formatted(date: .abbreviated, time: .omitted))
+                                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                            .foregroundStyle(BaselineTheme.primaryText)
+                                        Text(session.sessionType.rawValue.capitalized)
+                                            .font(.caption)
+                                            .foregroundStyle(BaselineTheme.secondaryText)
+                                    }
+                                    Spacer()
+                                    VStack(alignment: .trailing, spacing: 4) {
+                                        metricPill("C \(session.composure)")
+                                        metricPill("R \(session.rushedShots)")
+                                    }
+                                    Image(systemName: "chevron.right")
+                                        .font(.footnote.weight(.semibold))
+                                        .foregroundStyle(BaselineTheme.secondaryText.opacity(0.8))
+                                        .padding(.leading, 4)
+                                }
+                                .padding(.vertical, 2)
+                            }
                         }
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 3) {
-                            metricPill("C \(session.composure)")
-                            metricPill("R \(session.rushedShots)")
-                        }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.vertical, 4)
                 }
-                .listRowBackground(Color.white.opacity(0.62))
+                .padding(16)
             }
-            .scrollContentBackground(.hidden)
         }
         .navigationTitle("History")
     }
@@ -41,7 +52,11 @@ struct HistoryView: View {
             .foregroundStyle(BaselineTheme.primaryText)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .background(BaselineTheme.accentSoft.opacity(0.35))
+            .background(BaselineTheme.rowSurface, in: Capsule())
+            .overlay(
+                Capsule()
+                .stroke(.white.opacity(0.5), lineWidth: 0.8)
+            )
             .clipShape(Capsule())
     }
 }

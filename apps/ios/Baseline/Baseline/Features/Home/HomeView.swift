@@ -37,22 +37,22 @@ struct HomeView: View {
                         )
                     }
 
-                    SparklineView(
-                        title: "Rushed Shots",
-                        points: SessionMetrics.rushedTrendPoints(from: sessions),
-                        lineColor: BaselineTheme.accent,
-                        fillColor: BaselineTheme.accentSoft.opacity(0.15)
-                    )
+                SparklineView(
+                    title: "Rushed Shots",
+                    points: SessionMetrics.rushedTrendPoints(from: sessions),
+                    lineColor: BaselineTheme.accent,
+                    fillColor: BaselineTheme.accentSoft.opacity(0.3)
+                )
 
-                    SparklineView(
-                        title: "Composure",
-                        points: SessionMetrics.composureTrendPoints(from: sessions),
-                        lineColor: Color(red: 0.15, green: 0.55, blue: 0.34),
-                        fillColor: Color(red: 0.67, green: 0.86, blue: 0.76).opacity(0.2)
-                    )
-                }
-                .padding(16)
+                SparklineView(
+                    title: "Composure",
+                    points: SessionMetrics.composureTrendPoints(from: sessions),
+                    lineColor: Color(red: 0.34, green: 0.36, blue: 0.39),
+                    fillColor: Color(red: 0.95, green: 0.94, blue: 0.92).opacity(0.42)
+                )
             }
+            .padding(16)
+        }
         }
         .navigationBarTitleDisplayMode(.inline)
     }
