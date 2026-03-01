@@ -30,6 +30,11 @@ final class SyncEngine {
         guard !isSyncInFlight else { return }
 
         let cursor = ensureCursor(in: context)
+        if reason == .appLaunch || reason == .appForeground {
+            cursor.consecutiveFailures = 0
+            cursor.lastErrorAt = nil
+            cursor.lastErrorMessage = nil
+        }
         isSyncInFlight = true
         cursor.isSyncing = true
         try? context.save()
@@ -41,15 +46,18 @@ final class SyncEngine {
         }
 
         do {
+            try migrateLegacyOpponentIdentityKeys(in: context)
+
             let runtimeConfig = try RuntimeConfig.load()
             let client = SyncAPIClient(config: runtimeConfig)
 
             let outboxItems = try fetchOutboxItems(in: context)
-            let pushPayload = try buildPushPayload(from: outboxItems, in: context)
+            let validOutboxItems = try pruneStaleOutboxItems(outboxItems, in: context)
+            let pushPayload = try buildPushPayload(from: validOutboxItems, in: context)
 
             if hasPushChanges(payload: pushPayload) {
                 let pushResponse = try await client.push(pushPayload)
-                applyPushSuccess(in: context, outboxItems: outboxItems, pushedSessions: pushPayload.sessions)
+                applyPushSuccess(in: context, outboxItems: validOutboxItems, pushedSessions: pushPayload.sessions)
                 cursor.lastPushAt = pushResponse.serverTimestamp
             }
 
@@ -109,6 +117,44 @@ final class SyncEngine {
         let sort = SortDescriptor(\SyncOutboxItem.enqueuedAt, order: .forward)
         let descriptor = FetchDescriptor<SyncOutboxItem>(sortBy: [sort])
         return try context.fetch(descriptor)
+    }
+
+    private func pruneStaleOutboxItems(_ outboxItems: [SyncOutboxItem], in context: ModelContext) throws -> [SyncOutboxItem] {
+        var validItems: [SyncOutboxItem] = []
+        var removedAny = false
+
+        for outboxItem in outboxItems {
+            if try fetchSession(id: outboxItem.sessionID, in: context) != nil {
+                validItems.append(outboxItem)
+            } else {
+                context.delete(outboxItem)
+                removedAny = true
+            }
+        }
+
+        if removedAny {
+            try context.save()
+        }
+
+        return validItems
+    }
+
+    private func migrateLegacyOpponentIdentityKeys(in context: ModelContext) throws {
+        let descriptor = FetchDescriptor<Opponent>()
+        let opponents = try context.fetch(descriptor)
+        var didUpdate = false
+
+        for opponent in opponents {
+            let identityKey = opponent.identityKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            if identityKey.isEmpty {
+                opponent.identityKey = opponent.id.uuidString
+                didUpdate = true
+            }
+        }
+
+        if didUpdate {
+            try context.save()
+        }
     }
 
     private func buildPushPayload(from outboxItems: [SyncOutboxItem], in context: ModelContext) throws -> SyncPushRequestDTO {
@@ -171,17 +217,20 @@ final class SyncEngine {
             return
         }
 
-        let normalized = Opponent.normalize(dto.name)
-        if let byName = try fetchOpponent(normalizedName: normalized, in: context) {
-            guard dto.updatedAt > byName.updatedAt else { return }
-            byName.id = dto.id
-            apply(opponent: byName, from: dto)
+        if let byIdentityKey = try fetchOpponent(identityKey: dto.identityKey, in: context) {
+            guard dto.updatedAt > byIdentityKey.updatedAt else { return }
+            byIdentityKey.id = dto.id
+            apply(opponent: byIdentityKey, from: dto)
             return
         }
 
         let created = Opponent(
             id: dto.id,
+            identityKey: dto.identityKey,
             name: dto.name,
+            dominantHand: dto.dominantHand,
+            playStyle: dto.playStyle,
+            notes: dto.notes,
             createdAt: dto.createdAt,
             updatedAt: dto.updatedAt,
             deletedAt: dto.deletedAt
@@ -190,8 +239,12 @@ final class SyncEngine {
     }
 
     private func apply(opponent: Opponent, from dto: OpponentDTO) {
+        opponent.identityKey = dto.identityKey
         opponent.name = Opponent.cleanedName(dto.name)
         opponent.normalizedName = Opponent.normalize(dto.name)
+        opponent.dominantHand = dto.dominantHand
+        opponent.playStyle = dto.playStyle
+        opponent.notes = dto.notes
         opponent.createdAt = dto.createdAt
         opponent.updatedAt = dto.updatedAt
         opponent.deletedAt = dto.deletedAt
@@ -306,9 +359,9 @@ final class SyncEngine {
         return try context.fetch(descriptor).first
     }
 
-    private func fetchOpponent(normalizedName: String, in context: ModelContext) throws -> Opponent? {
+    private func fetchOpponent(identityKey: String, in context: ModelContext) throws -> Opponent? {
         let predicate = #Predicate<Opponent> { opponent in
-            opponent.normalizedName == normalizedName
+            opponent.identityKey == identityKey
         }
         var descriptor = FetchDescriptor<Opponent>(predicate: predicate)
         descriptor.fetchLimit = 1
@@ -371,10 +424,11 @@ private extension Opponent {
         OpponentDTO(
             id: id,
             userId: nil,
+            identityKey: identityKey,
             name: name,
-            dominantHand: nil,
-            playStyle: nil,
-            notes: nil,
+            dominantHand: dominantHand,
+            playStyle: playStyle,
+            notes: notes,
             createdAt: createdAt,
             updatedAt: updatedAt,
             deletedAt: deletedAt
