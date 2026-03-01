@@ -30,8 +30,12 @@ enum SyncState: String, Codable, CaseIterable, Identifiable {
 @Model
 final class Opponent {
     @Attribute(.unique) var id: UUID = UUID()
-    @Attribute(.unique) var normalizedName: String
+    var identityKey: String = ""
+    var normalizedName: String
     var name: String
+    var dominantHand: String?
+    var playStyle: String?
+    var notes: String?
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
     var deletedAt: Date?
@@ -40,15 +44,25 @@ final class Opponent {
 
     init(
         id: UUID = UUID(),
+        identityKey: String? = nil,
         name: String,
+        dominantHand: String? = nil,
+        playStyle: String? = nil,
+        notes: String? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         deletedAt: Date? = nil
     ) {
         self.id = id
+        let cleanedIdentityKey = identityKey?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        self.identityKey = cleanedIdentityKey.isEmpty ? id.uuidString : cleanedIdentityKey
         let trimmedName = Self.cleanedName(name)
         self.name = trimmedName
         self.normalizedName = Self.normalize(trimmedName)
+        self.dominantHand = dominantHand
+        self.playStyle = playStyle
+        self.notes = notes
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt
