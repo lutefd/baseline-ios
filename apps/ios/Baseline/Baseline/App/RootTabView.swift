@@ -100,11 +100,13 @@ struct RootTabView: View {
     }
 
     private var pendingSyncCount: Int {
-        outboxItems.count
+        Set(outboxItems.map(\.sessionID)).count
     }
 
     private var syncFailureCount: Int {
-        syncCursors.first?.consecutiveFailures ?? 0
+        syncCursors
+            .first(where: { $0.id == SyncCursor.defaultID })?
+            .consecutiveFailures ?? 0
     }
 
     private var syncStatusIconName: String {
