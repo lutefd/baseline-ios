@@ -37,6 +37,7 @@ struct SessionDraft {
     var saveMatchResult: Bool
     var opponentName: String
     var setScores: [MatchSetScoreDraft]
+    private var existingOpponentID: UUID?
 
     var isCompetitiveSession: Bool {
         sessionType == .friendly || sessionType == .match
@@ -63,6 +64,7 @@ struct SessionDraft {
         saveMatchResult = false
         opponentName = ""
         setScores = [MatchSetScoreDraft(setNumber: 1)]
+        existingOpponentID = nil
     }
 
     init(session: Session) {
@@ -79,6 +81,7 @@ struct SessionDraft {
         directionChanges = session.directionChanges ?? 0
         notes = session.notes ?? ""
         opponentName = session.opponent?.name ?? ""
+        existingOpponentID = session.opponent?.id
         setScores = session.matchSetScores
             .sorted { lhs, rhs in
                 if lhs.setNumber != rhs.setNumber { return lhs.setNumber < rhs.setNumber }
@@ -188,19 +191,19 @@ struct SessionDraft {
         let cleanedName = Opponent.cleanedName(opponentName)
         guard !cleanedName.isEmpty else { return nil }
 
-        let normalized = Opponent.normalize(cleanedName)
-        let predicate = #Predicate<Opponent> { candidate in
-            candidate.normalizedName == normalized
-        }
-        var descriptor = FetchDescriptor<Opponent>(predicate: predicate)
-        descriptor.fetchLimit = 1
-
-        if let existingOpponents = try? modelContext.fetch(descriptor),
-           let existing = existingOpponents.first {
-            existing.name = cleanedName
-            existing.updatedAt = Date()
-            existing.deletedAt = nil
-            return existing
+        if let existingOpponentID {
+            let predicate = #Predicate<Opponent> { candidate in
+                candidate.id == existingOpponentID
+            }
+            var descriptor = FetchDescriptor<Opponent>(predicate: predicate)
+            descriptor.fetchLimit = 1
+            if let existing = try? modelContext.fetch(descriptor).first {
+                existing.name = cleanedName
+                existing.normalizedName = Opponent.normalize(cleanedName)
+                existing.updatedAt = Date()
+                existing.deletedAt = nil
+                return existing
+            }
         }
 
         let opponent = Opponent(name: cleanedName)
@@ -236,5 +239,14 @@ struct SessionDraft {
         for index in setScores.indices {
             setScores[index].setNumber = index + 1
         }
+    }
+
+    mutating func selectExistingOpponent(_ opponent: Opponent) {
+        existingOpponentID = opponent.id
+        opponentName = opponent.name
+    }
+
+    mutating func clearSelectedOpponent() {
+        existingOpponentID = nil
     }
 }
