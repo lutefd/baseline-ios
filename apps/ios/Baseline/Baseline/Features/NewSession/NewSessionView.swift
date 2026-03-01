@@ -11,11 +11,21 @@ struct NewSessionView: View {
     }
 
     @Environment(\.modelContext) private var modelContext
+    @Query(
+        filter: #Predicate<Opponent> { opponent in
+            opponent.deletedAt == nil
+        },
+        sort: \Opponent.updatedAt,
+        order: .reverse
+    ) private var opponents: [Opponent]
     @State private var draft = SessionDraft()
     @State private var errorMessage: String?
     @State private var startedAt = Date()
     @State private var durationMinutesText = "60"
     @State private var lastDurationMinutesValue = 60
+    @State private var selectedOpponentSuggestionID: UUID?
+    @State private var showOpponentPicker = false
+    @State private var opponentPickerQuery = ""
     @FocusState private var focusedField: Field?
     var onSessionSaved: () -> Void = {}
 
@@ -104,8 +114,22 @@ struct NewSessionView: View {
                             Toggle("Save match result", isOn: $draft.saveMatchResult)
 
                             if draft.saveMatchResult {
-                                TextField("Opponent name", text: $draft.opponentName)
-                                    .focused($focusedField, equals: .opponentName)
+                                HStack(spacing: 8) {
+                                    TextField("Opponent name", text: $draft.opponentName)
+                                        .focused($focusedField, equals: .opponentName)
+
+                                    Button {
+                                        opponentPickerQuery = Opponent.cleanedName(draft.opponentName)
+                                        focusedField = nil
+                                        showOpponentPicker = true
+                                    } label: {
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(BaselineTheme.secondaryText)
+                                            .frame(width: 30, height: 30)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
 
                                 ForEach($draft.setScores) { $setScore in
                                     VStack(alignment: .leading, spacing: 18) {
@@ -154,9 +178,11 @@ struct NewSessionView: View {
                 .scrollDismissesKeyboard(.interactively)
                 .toolbar {
                     ToolbarItemGroup(placement: .keyboard) {
-                        Spacer()
-                        Button("Done") {
-                            focusedField = nil
+                        if focusedField != .opponentName {
+                            Spacer()
+                            Button("Done") {
+                                focusedField = nil
+                            }
                         }
                     }
                 }
@@ -172,6 +198,46 @@ struct NewSessionView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .sheet(isPresented: $showOpponentPicker) {
+            NavigationStack {
+                List {
+                    if filteredOpponents.isEmpty {
+                        Text("No existing opponents found. Saving will create a new opponent.")
+                            .font(BaselineTypography.caption)
+                            .foregroundStyle(BaselineTheme.secondaryText)
+                    } else {
+                        ForEach(filteredOpponents) { opponent in
+                            Button {
+                                selectedOpponentSuggestionID = opponent.id
+                                draft.selectExistingOpponent(opponent)
+                                showOpponentPicker = false
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(opponent.name)
+                                        .font(BaselineTypography.body)
+                                        .foregroundStyle(BaselineTheme.primaryText)
+                                    if let notes = opponent.notes?.trimmingCharacters(in: .whitespacesAndNewlines),
+                                       !notes.isEmpty {
+                                        Text(notes)
+                                            .font(BaselineTypography.caption)
+                                            .foregroundStyle(BaselineTheme.secondaryText)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                .searchable(text: $opponentPickerQuery, prompt: "Search opponents")
+                .navigationTitle("Choose Opponent")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") {
+                            showOpponentPicker = false
+                        }
+                    }
+                }
+            }
+        }
         .onAppear {
             durationMinutesText = String(draft.durationMinutes)
             lastDurationMinutesValue = draft.durationMinutes
@@ -195,6 +261,44 @@ struct NewSessionView: View {
             guard !digitsOnly.isEmpty, let value = Int(digitsOnly) else { return }
             draft.durationMinutes = min(max(value, 1), 240)
         }
+        .onChange(of: draft.opponentName) { _, newValue in
+            guard let selectedOpponentSuggestionID,
+                  let selectedOpponent = opponents.first(where: { $0.id == selectedOpponentSuggestionID }),
+                  Opponent.cleanedName(newValue) == selectedOpponent.name else {
+                self.selectedOpponentSuggestionID = nil
+                draft.clearSelectedOpponent()
+                return
+            }
+        }
+    }
+
+    private var filteredOpponents: [Opponent] {
+        let query = Opponent.cleanedName(opponentPickerQuery)
+        guard !query.isEmpty else {
+            return Array(opponents.prefix(30))
+        }
+        let loweredQuery = query.lowercased()
+        return opponents
+            .compactMap { opponent -> (opponent: Opponent, rank: Int)? in
+                let loweredName = opponent.name.lowercased()
+                if loweredName.hasPrefix(loweredQuery) {
+                    return (opponent, 0)
+                }
+                if loweredName.contains(loweredQuery) {
+                    return (opponent, 1)
+                }
+                let loweredNotes = (opponent.notes ?? "").lowercased()
+                if !loweredNotes.isEmpty, loweredNotes.contains(loweredQuery) {
+                    return (opponent, 2)
+                }
+                return nil
+            }
+            .sorted { lhs, rhs in
+                if lhs.rank != rhs.rank { return lhs.rank < rhs.rank }
+                return lhs.opponent.updatedAt > rhs.opponent.updatedAt
+            }
+            .prefix(30)
+            .map(\.opponent)
     }
 
     private func commitDurationText() {
