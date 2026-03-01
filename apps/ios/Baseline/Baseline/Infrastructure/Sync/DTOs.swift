@@ -61,6 +61,7 @@ struct MatchSetDTO: Codable, Identifiable {
 struct OpponentDTO: Codable, Identifiable {
     var id: UUID
     var userId: UUID?
+    var identityKey: String
     var name: String
     var dominantHand: String?
     var playStyle: String?
@@ -68,6 +69,52 @@ struct OpponentDTO: Codable, Identifiable {
     var createdAt: Date
     var updatedAt: Date
     var deletedAt: Date?
+
+    init(
+        id: UUID,
+        userId: UUID?,
+        identityKey: String?,
+        name: String,
+        dominantHand: String?,
+        playStyle: String?,
+        notes: String?,
+        createdAt: Date,
+        updatedAt: Date,
+        deletedAt: Date?
+    ) {
+        self.id = id
+        self.userId = userId
+        self.identityKey = Self.resolveIdentityKey(identityKey, id: id)
+        self.name = name
+        self.dominantHand = dominantHand
+        self.playStyle = playStyle
+        self.notes = notes
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        userId = try container.decodeIfPresent(UUID.self, forKey: .userId)
+        identityKey = Self.resolveIdentityKey(
+            try container.decodeIfPresent(String.self, forKey: .identityKey),
+            id: id
+        )
+        name = try container.decode(String.self, forKey: .name)
+        dominantHand = try container.decodeIfPresent(String.self, forKey: .dominantHand)
+        playStyle = try container.decodeIfPresent(String.self, forKey: .playStyle)
+        notes = try container.decodeIfPresent(String.self, forKey: .notes)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        deletedAt = try container.decodeIfPresent(Date.self, forKey: .deletedAt)
+    }
+
+    private static func resolveIdentityKey(_ rawIdentityKey: String?, id: UUID) -> String {
+        let trimmed = rawIdentityKey?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? id.uuidString : trimmed
+    }
 }
 
 enum SyncDateCoding {
