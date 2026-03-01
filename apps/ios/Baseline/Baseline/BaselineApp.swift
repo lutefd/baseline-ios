@@ -38,18 +38,29 @@ struct BaselineApp: App {
 }
 
 private func shouldResetStore(after error: Error) -> Bool {
-    let nsError = error as NSError
+    containsMigrationFailure(error as NSError)
+}
+
+private func containsMigrationFailure(_ nsError: NSError) -> Bool {
     if nsError.domain == NSCocoaErrorDomain && nsError.code == 134110 {
         return true
     }
 
-    if let underlyingError = nsError.userInfo[NSUnderlyingErrorKey] as? NSError,
-       underlyingError.domain == NSCocoaErrorDomain,
-       underlyingError.code == 134110 {
+    let nestedErrors = nsError.userInfo.values.flatMap { value -> [NSError] in
+        if let error = value as? NSError {
+            return [error]
+        }
+        if let errors = value as? [NSError] {
+            return errors
+        }
+        return []
+    }
+
+    if nestedErrors.contains(where: containsMigrationFailure) {
         return true
     }
 
-    return false
+    return nsError.localizedDescription.contains("134110")
 }
 
 private func resetDefaultStoreFiles() {
